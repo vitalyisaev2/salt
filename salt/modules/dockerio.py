@@ -317,17 +317,20 @@ def _get_image_infos(image):
 
     Returns the image id
     '''
+    log.debug("_get_image_infos: image {}".format(image))
     status = base_status.copy()
     client = _get_client()
     try:
         infos = client.inspect_image(image)
+        log.debug("_get_image_infos: infos {}".format(infos))
         if infos:
             _valid(status,
                    id_=infos['Id'],
                    out=infos,
                    comment='found')
     except Exception:
-        pass
+        log.exception("_get_image_infos")
+    log.debug("_get_image_infos: status {}".format(status))
     if not status['id']:
         _invalid(status)
         raise CommandExecutionError(
@@ -1584,13 +1587,13 @@ def _parse_image_multilogs_string(ret):
                 pushd += 1
             if char == '}':
                 pushd -= 1
-            if pushd == 0:
+            if pushd == 0 and len(buf):
                 try:
-                    buf = json.loads(buf)
+                    decoded_buf = json.loads(buf)
                 except Exception:
                     pass
                 else:
-                    image_logs.append(buf)
+                    image_logs.append(decoded_buf)
                 buf = ''
         image_logs.reverse()
 
@@ -1599,9 +1602,10 @@ def _parse_image_multilogs_string(ret):
             'Download complete',
             'Already exists',
         ]
-
+        log.debug("_parse_image_multilogs_string: image_logs: {}".format(image_logs))
         # search last layer grabbed
         for ilog in image_logs:
+            log.debug("_parse_image_multilogs_string: ilog: {}".format(ilog))
             if isinstance(ilog, dict):
                 if ilog.get('status') in valid_states and ilog.get('id'):
                     infos = _get_image_infos(ilog['id'])
@@ -1680,6 +1684,7 @@ def pull(repo, tag=None, insecure_registry=False):
                                        ver2='0.5.0'):
             kwargs['insecure_registry'] = insecure_registry
         ret = client.pull(repo, **kwargs)
+        log.debug("client.pull:\n{}".format(ret))
         if ret:
             image_logs, infos = _parse_image_multilogs_string(ret)
             if infos and infos.get('Id', None):
